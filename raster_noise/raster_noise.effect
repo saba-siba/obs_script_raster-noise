@@ -1,0 +1,65 @@
+uniform float4x4 ViewProj;
+uniform texture2d image;
+
+uniform int timer;//0~3600-1くらい
+uniform float2 pix_size;
+uniform float noise_rate;
+uniform int noise_distance;
+uniform int freq;
+uniform int display_time;
+
+
+sampler_state textureSampler {
+    Filter    = Linear;
+    AddressU  = Clamp;
+    AddressV  = Clamp;
+};
+
+struct VertDataIn {
+    float4 pos : POSITION;
+    float2 uv  : TEXCOORD0;
+};
+
+struct VertDataOut {
+    float4 pos : POSITION;
+    float2 uv  : TEXCOORD0;
+};
+
+VertDataOut VSDefault(VertDataIn v_in)
+{
+    VertDataOut vert_out;
+    vert_out.pos = mul(float4(v_in.pos.xyz, 1.0), ViewProj);
+    vert_out.uv  = v_in.uv;
+    return vert_out;
+}
+
+
+//参考にしたサイトあり0～1.0のランダム
+float GetRandomNumber(float2 texCoord, int Seed)
+{
+	return frac(sin(dot(texCoord.xy, float2(12.9898, 78.233)) + Seed) * 43758.5453);
+}
+
+
+
+float4 PassThrough(VertDataOut v_in) : TARGET
+{
+	float2 ran;
+	ran.x=0;
+	ran.y=floor(360*freq*v_in.uv.y/360);
+	float randnum=(max(1-noise_rate,GetRandomNumber(ran,floor(timer/display_time)))-(1-noise_rate))/noise_rate;
+	v_in.uv.x+=pix_size.x*noise_distance*randnum*sin(radians(GetRandomNumber(ran,floor(timer/display_time))*360+360*freq*v_in.uv.y));
+    return image.Sample(textureSampler,v_in.uv);
+}
+
+
+
+technique Draw
+{
+    pass {
+
+        vertex_shader = VSDefault(v_in);
+        pixel_shader  = PassThrough(v_in);
+    }
+
+}
